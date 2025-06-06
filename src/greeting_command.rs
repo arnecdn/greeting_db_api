@@ -3,7 +3,7 @@ use std::str::FromStr;
 use async_trait::async_trait;
 use chrono::NaiveDateTime;
 use serde::{Deserialize, Serialize};
-use sqlx::{Error, Pool};
+use sqlx::{Pool};
 use uuid::Uuid;
 use crate::DbError;
 

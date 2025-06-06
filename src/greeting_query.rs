@@ -2,7 +2,7 @@ use std::fmt::{Debug, Formatter};
 use async_trait::async_trait;
 use chrono::NaiveDateTime;
 use serde::{Deserialize, Serialize};
-use sqlx::{Error, Pool};
+use sqlx::{Pool};
 use crate::DbError;
 
 pub struct GreetingQueryRepositoryImpl {
