@@ -1,0 +1,16 @@
+---
+services:
+    postgres:
+        image: container-registry-internal-private-pull.aurora.skead.no/postgres:15.7-alpine3.20
+        restart: always
+        environment:
+            POSTGRES_DB: greeting_rust
+            POSTGRES_USER: greeting_rust
+            POSTGRES_PASSWORD: greeting_rust
+        volumes:
+            - ./migrationS:/docker-entrypoint-initdb.d
+        ports:
+            - "5432:5432"
+        expose:
+            -   "5432"
+        command: ["postgres", "-c", "fsync=off"]
