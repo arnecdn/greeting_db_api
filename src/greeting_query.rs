@@ -1,8 +1,8 @@
 use std::fmt::{Debug, Formatter};
 use async_trait::async_trait;
-use chrono::NaiveDateTime;
+use chrono::{DateTime, NaiveDateTime, Utc};
 use serde::{Deserialize, Serialize};
-use sqlx::{Pool};
+use sqlx::{Executor, Pool, Postgres, QueryBuilder, Row};
 use crate::DbError;
 
 pub struct GreetingQueryRepositoryImpl {
@@ -11,7 +11,11 @@ pub struct GreetingQueryRepositoryImpl {
 
 #[async_trait]
 pub trait GreetingQueryRepository {
-    async fn store(&mut self, greeting: GreetingQueryDto) -> Result<(), DbError>;
+
+    async fn list_log_entries(
+        &self,
+        logg_query: LoggQuery,
+    ) -> Result<Vec<LoggEntry>, DbError>;
 }
 
 impl Debug for GreetingQueryRepositoryImpl {
@@ -26,11 +30,64 @@ impl GreetingQueryRepositoryImpl {
 }
 #[async_trait]
 impl GreetingQueryRepository for GreetingQueryRepositoryImpl {
-    async fn store(&mut self, _greeting: GreetingQueryDto) -> Result<(), DbError> {
-        Ok(())
+    async fn list_log_entries(
+        &self,
+        logg_query: LoggQuery,
+    ) -> Result<Vec<LoggEntry>, DbError>{
+        let direction = SqlDirection::value_of(&logg_query.direction);
+
+        let mut logg_sql: QueryBuilder<Postgres> =
+            QueryBuilder::new("SELECT id, greeting_id, opprettet FROM LOGG");
+
+        logg_sql.push(format!(" WHERE id {} ", direction.operator));
+        logg_sql.push_bind(logg_query.offset );
+        logg_sql.push(format!(" ORDER BY id {}", direction.order));
+        logg_sql.push(" LIMIT ");
+        logg_sql.push_bind(logg_query.limit);
+
+        let r = self.pool
+            .fetch_all(logg_sql.build())
+            .await
+            .map(|res| res.iter().map(|v|
+                LoggEntry { id: v.get(0) , greeting_id: v.get(1), created: v.get(2) }).collect::<Vec<_>>()
+            )?;
+
+        Ok(r)
     }
 }
 
+
+
+struct SqlDirection {
+    order: String,
+    operator: String,
+}
+
+impl SqlDirection {
+    fn value_of(direction: &str) -> SqlDirection {
+        match direction {
+            "forward" => SqlDirection {
+                order: String::from("ASC"),
+                operator: String::from(">="),
+            },
+            "backward" => SqlDirection {
+                order: String::from("DESC"),
+                operator: String::from("<="),
+            },
+            _ => panic!("Invalid direction"),
+        }
+    }
+}
+pub struct LoggQuery {
+    offset: i64,
+    limit: i64,
+    direction: String,
+}
+pub struct LoggEntry {
+    id: i64,
+    greeting_id: i64,
+    created: DateTime<Utc>,
+}
 #[derive(Debug, Serialize, Deserialize, Clone)]
 pub struct GreetingQueryDto {
     id: String,
