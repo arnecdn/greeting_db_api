@@ -1,9 +1,10 @@
-use std::fmt::{Debug, Formatter};
+use crate::DbError;
 use async_trait::async_trait;
 use chrono::{DateTime, NaiveDateTime, Utc};
+use log::{error, info};
 use serde::{Deserialize, Serialize};
 use sqlx::{Executor, Pool, Postgres, QueryBuilder, Row};
-use crate::DbError;
+use std::fmt::{Debug, Formatter};
 
 pub struct GreetingQueryRepositoryImpl {
     pool: Box<Pool<sqlx::Postgres>>,
@@ -11,11 +12,7 @@ pub struct GreetingQueryRepositoryImpl {
 
 #[async_trait]
 pub trait GreetingQueryRepository {
-
-    async fn list_log_entries(
-        &self,
-        logg_query: LoggQuery,
-    ) -> Result<Vec<LoggEntry>, DbError>;
+    async fn list_log_entries(&self, logg_query: LoggQueryEntity) -> Result<Vec<LoggEntryEntity>, DbError>;
 }
 
 impl Debug for GreetingQueryRepositoryImpl {
@@ -30,33 +27,31 @@ impl GreetingQueryRepositoryImpl {
 }
 #[async_trait]
 impl GreetingQueryRepository for GreetingQueryRepositoryImpl {
-    async fn list_log_entries(
-        &self,
-        logg_query: LoggQuery,
-    ) -> Result<Vec<LoggEntry>, DbError>{
+    async fn list_log_entries(&self, logg_query: LoggQueryEntity) -> Result<Vec<LoggEntryEntity>, DbError> {
         let direction = SqlDirection::value_of(&logg_query.direction);
 
         let mut logg_sql: QueryBuilder<Postgres> =
             QueryBuilder::new("SELECT id, greeting_id, opprettet FROM LOGG");
 
         logg_sql.push(format!(" WHERE id {} ", direction.operator));
-        logg_sql.push_bind(logg_query.offset );
+        logg_sql.push_bind(logg_query.offset);
         logg_sql.push(format!(" ORDER BY id {}", direction.order));
         logg_sql.push(" LIMIT ");
         logg_sql.push_bind(logg_query.limit);
 
-        let r = self.pool
-            .fetch_all(logg_sql.build())
-            .await
-            .map(|res| res.iter().map(|v|
-                LoggEntry { id: v.get(0) , greeting_id: v.get(1), created: v.get(2) }).collect::<Vec<_>>()
-            )?;
+        let r = self.pool.fetch_all(logg_sql.build()).await.map(|res| {
+            res.iter()
+                .map(|v| LoggEntryEntity {
+                    id: v.get(0),
+                    greeting_id: v.get(1),
+                    created: v.get(2),
+                })
+                .collect::<Vec<_>>()
+        })?;
 
         Ok(r)
     }
 }
-
-
 
 struct SqlDirection {
     order: String,
@@ -78,18 +73,20 @@ impl SqlDirection {
         }
     }
 }
-pub struct LoggQuery {
-    offset: i64,
-    limit: i64,
-    direction: String,
+
+pub struct LoggQueryEntity {
+    pub offset: i64,
+    pub limit: i64,
+    pub direction: String,
 }
-pub struct LoggEntry {
-    id: i64,
-    greeting_id: i64,
-    created: DateTime<Utc>,
+pub struct LoggEntryEntity {
+    pub id: i64,
+    pub greeting_id: i64,
+    pub created: DateTime<Utc>,
 }
+
 #[derive(Debug, Serialize, Deserialize, Clone)]
-pub struct GreetingQueryDto {
+pub struct GreetingQueryEntity {
     id: String,
     to: String,
     from: String,
