@@ -1,7 +1,6 @@
 use crate::DbError;
 use async_trait::async_trait;
 use chrono::{DateTime, NaiveDateTime, Utc};
-use log::{error, info};
 use serde::{Deserialize, Serialize};
 use sqlx::{Executor, Pool, Postgres, QueryBuilder, Row};
 use std::fmt::{Debug, Formatter};

@@ -2,7 +2,6 @@ pub mod greeting_command;
 pub mod greeting_query;
 
 use derive_more::with_trait::Display;
-use log::{error, info};
 use sqlx::migrate::MigrateError;
 use sqlx::postgres::PgPoolOptions;
 use sqlx::{Error, Pool, Postgres};
@@ -34,7 +33,6 @@ pub async fn generate_logg(pool: &Box<Pool<Postgres>>) -> Result<(), DbError>{
         .execute(&mut *transaction)
         .await?;
 
-    info!("Generating log");
     transaction.commit().await?;
 
     Ok(())
