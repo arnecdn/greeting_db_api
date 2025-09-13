@@ -1,10 +1,12 @@
 pub mod greeting_command;
 pub mod greeting_query;
+pub mod greeting_pg_trace;
 
 use derive_more::with_trait::Display;
 use sqlx::migrate::MigrateError;
 use sqlx::postgres::PgPoolOptions;
 use sqlx::{Error, Pool, Postgres};
+use crate::greeting_pg_trace::PgTraceContext;
 
 pub async fn init_db(db_url: String) -> Result<Pool<sqlx::Postgres>, DbError> {
     let pool = PgPoolOptions::new()
@@ -19,8 +21,12 @@ pub async fn migrate(pool: &Pool<Postgres>) -> Result<(), DbError> {
     Ok(())
 }
 
-pub async fn generate_logg(pool: &Box<Pool<Postgres>>) -> Result<(), DbError>{
+pub async fn generate_logg(pool: &Box<Pool<Postgres>>, trace: PgTraceContext) -> Result<(), DbError>{
     let mut transaction = pool.begin().await?;
+
+    sqlx::query(&trace.to_sql())
+        .execute(&mut *transaction)
+        .await?;
 
     sqlx::query(
         "do
@@ -65,3 +71,4 @@ impl From<&str> for DbError {
         }
     }
 }
+

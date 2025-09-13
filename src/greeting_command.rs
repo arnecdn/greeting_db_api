@@ -1,11 +1,12 @@
-use std::fmt::{Debug, Formatter};
-use std::str::FromStr;
+use crate::greeting_pg_trace::PgTraceContext;
+use crate::DbError;
 use async_trait::async_trait;
 use chrono::NaiveDateTime;
 use serde::{Deserialize, Serialize};
-use sqlx::{Pool};
+use sqlx::Pool;
+use std::fmt::{Debug, Formatter};
+use std::str::FromStr;
 use uuid::Uuid;
-use crate::DbError;
 
 pub struct GreetingCommandRepositoryImpl {
     pool: Box<Pool<sqlx::Postgres>>,
@@ -13,7 +14,11 @@ pub struct GreetingCommandRepositoryImpl {
 
 #[async_trait]
 pub trait GreetingCommandRepository {
-    async fn store(&mut self, _greeting: GreetingCmdDto) -> Result<(), DbError>;
+    async fn store(
+        &mut self,
+        trace: PgTraceContext,
+        _greeting: GreetingCmdDto,
+    ) -> Result<(), DbError>;
 }
 
 impl Debug for GreetingCommandRepositoryImpl {
@@ -28,22 +33,39 @@ impl GreetingCommandRepositoryImpl {
 }
 #[async_trait]
 impl GreetingCommandRepository for GreetingCommandRepositoryImpl {
-    async fn store(&mut self, greeting: GreetingCmdDto) -> Result<(), DbError> {
+    async fn store(
+        &mut self,
+        trace: PgTraceContext,
+        greeting: GreetingCmdDto,
+    ) -> Result<(), DbError> {
         let mut transaction = self.pool.begin().await?;
 
-        let id: (i64,) = sqlx::query_as("INSERT INTO greeting(message_id, \"from\", \"to\", heading, message, created) VALUES ($1, $2, $3, $4, $5, $6) RETURNING id")
-            .bind(Uuid::from_str(&*greeting.id).unwrap())
-            .bind(greeting.from)
-            .bind(greeting.to)
-            .bind(greeting.heading)
-            .bind(greeting.message)
-            .bind(greeting.created)
-            .fetch_one(&mut *transaction).await?;
-
-        sqlx::query("INSERT INTO ikke_paa_logg(greeting_id) VALUES ($1)")
-            .bind(id.0)
+        sqlx::query(&trace.to_sql())
             .execute(&mut *transaction)
             .await?;
+
+        let id: (i64,) = sqlx::query_as(
+            "
+            INSERT INTO greeting(message_id, \"from\", \"to\", heading, message, created)
+            VALUES ($1, $2, $3, $4, $5, $6) RETURNING id
+            ",
+        )
+        .bind(Uuid::from_str(&*greeting.id).unwrap())
+        .bind(greeting.from)
+        .bind(greeting.to)
+        .bind(greeting.heading)
+        .bind(greeting.message)
+        .bind(greeting.created)
+        .fetch_one(&mut *transaction)
+        .await?;
+
+        sqlx::query(
+            "
+                INSERT INTO ikke_paa_logg(greeting_id) VALUES ($1)",
+        )
+        .bind(id.0)
+        .execute(&mut *transaction)
+        .await?;
 
         transaction.commit().await?;
         Ok(())

@@ -4,6 +4,7 @@ use chrono::{DateTime, NaiveDateTime, Utc};
 use serde::{Deserialize, Serialize};
 use sqlx::{Executor, Pool, Postgres, QueryBuilder, Row};
 use std::fmt::{Debug, Formatter};
+use crate::greeting_pg_trace::PgTraceContext;
 
 pub struct GreetingQueryRepositoryImpl {
     pool: Box<Pool<sqlx::Postgres>>,
@@ -11,7 +12,7 @@ pub struct GreetingQueryRepositoryImpl {
 
 #[async_trait]
 pub trait GreetingQueryRepository {
-    async fn list_log_entries(&self, logg_query: LoggQueryEntity) -> Result<Vec<LoggEntryEntity>, DbError>;
+    async fn list_log_entries(&self, trace: PgTraceContext, logg_query: LoggQueryEntity) -> Result<Vec<LoggEntryEntity>, DbError>;
 }
 
 impl Debug for GreetingQueryRepositoryImpl {
@@ -26,17 +27,18 @@ impl GreetingQueryRepositoryImpl {
 }
 #[async_trait]
 impl GreetingQueryRepository for GreetingQueryRepositoryImpl {
-    async fn list_log_entries(&self, logg_query: LoggQueryEntity) -> Result<Vec<LoggEntryEntity>, DbError> {
+    async fn list_log_entries(&self, trace: PgTraceContext, logg_query: LoggQueryEntity) -> Result<Vec<LoggEntryEntity>, DbError> {
         let direction = SqlDirection::value_of(&logg_query.direction);
 
         let mut logg_sql: QueryBuilder<Postgres> =
             QueryBuilder::new("SELECT id, greeting_id, opprettet FROM LOGG");
-
         logg_sql.push(format!(" WHERE id {} ", direction.operator));
         logg_sql.push_bind(logg_query.offset);
         logg_sql.push(format!(" ORDER BY id {}", direction.order));
         logg_sql.push(" LIMIT ");
         logg_sql.push_bind(logg_query.limit);
+
+        sqlx::query(&trace.to_sql()).fetch_all(self.pool.as_ref()).await?;
 
         let r = self.pool.fetch_all(logg_sql.build()).await.map(|res| {
             res.iter()
