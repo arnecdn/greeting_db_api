@@ -37,10 +37,13 @@ impl GreetingQueryRepository for GreetingQueryRepositoryImpl {
         logg_sql.push(format!(" ORDER BY id {}", direction.order));
         logg_sql.push(" LIMIT ");
         logg_sql.push_bind(logg_query.limit);
+        let mut transaction = self.pool.begin().await?;
 
-        sqlx::query(&trace.to_sql()).fetch_all(self.pool.as_ref()).await?;
+        sqlx::query(&trace.to_sql())
+            .execute(&mut *transaction)
+            .await?;
 
-        let r = self.pool.fetch_all(logg_sql.build()).await.map(|res| {
+        let r = transaction.fetch_all(logg_sql.build()).await.map(|res| {
             res.iter()
                 .map(|v| LoggEntryEntity {
                     id: v.get(0),
@@ -49,6 +52,7 @@ impl GreetingQueryRepository for GreetingQueryRepositoryImpl {
                 })
                 .collect::<Vec<_>>()
         })?;
+        transaction.commit().await?;
 
         Ok(r)
     }
