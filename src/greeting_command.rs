@@ -1,8 +1,10 @@
+use std::collections::HashMap;
 use crate::greeting_pg_trace::PgTraceContext;
 use crate::DbError;
 use async_trait::async_trait;
 use chrono::NaiveDateTime;
 use serde::{Deserialize, Serialize};
+use sqlx::types::Json;
 use sqlx::Pool;
 use std::fmt::{Debug, Formatter};
 use std::str::FromStr;
@@ -17,7 +19,7 @@ pub trait GreetingCommandRepository {
     async fn store(
         &mut self,
         trace: PgTraceContext,
-        _greeting: GreetingCmdDto,
+        _greeting: GreetingCmdEntity,
     ) -> Result<(), DbError>;
 }
 
@@ -36,7 +38,7 @@ impl GreetingCommandRepository for GreetingCommandRepositoryImpl {
     async fn store(
         &mut self,
         trace: PgTraceContext,
-        greeting: GreetingCmdDto,
+        greeting: GreetingCmdEntity,
     ) -> Result<(), DbError> {
         let mut transaction = self.pool.begin().await?;
 
@@ -46,16 +48,13 @@ impl GreetingCommandRepository for GreetingCommandRepositoryImpl {
 
         let id: (i64,) = sqlx::query_as(
             "
-            INSERT INTO greeting(message_id, \"from\", \"to\", heading, message, created)
-            VALUES ($1, $2, $3, $4, $5, $6) RETURNING id
+            INSERT INTO greeting(message_id,external_reference, message)
+            VALUES ($1, $2, $3) RETURNING id
             ",
         )
-        .bind(Uuid::from_str(&*greeting.id).unwrap())
-        .bind(greeting.from)
-        .bind(greeting.to)
-        .bind(greeting.heading)
-        .bind(greeting.message)
-        .bind(greeting.created)
+        .bind(Uuid::from_str(&*greeting.message_id).unwrap())
+        .bind(greeting.external_reference.to_string())
+        .bind(Json(greeting.clone()))
         .fetch_one(&mut *transaction)
         .await?;
 
@@ -73,11 +72,14 @@ impl GreetingCommandRepository for GreetingCommandRepositoryImpl {
 }
 
 #[derive(Debug, Serialize, Deserialize, Clone)]
-pub struct GreetingCmdDto {
-    id: String,
+pub struct GreetingCmdEntity {
+    external_reference: String,
+    message_id: String,
     to: String,
     from: String,
     heading: String,
     message: String,
     created: NaiveDateTime,
+    events_created: HashMap<String, NaiveDateTime>,
 }
+

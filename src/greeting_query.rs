@@ -1,3 +1,4 @@
+use std::collections::HashMap;
 use crate::DbError;
 use async_trait::async_trait;
 use chrono::{DateTime, NaiveDateTime, Utc};
@@ -31,7 +32,14 @@ impl GreetingQueryRepository for GreetingQueryRepositoryImpl {
         let direction = SqlDirection::value_of(&logg_query.direction);
 
         let mut logg_sql: QueryBuilder<Postgres> =
-            QueryBuilder::new("SELECT id, greeting_id, opprettet FROM LOGG");
+            QueryBuilder::new("SELECT l.id, \
+                l.greeting_id, \
+                g.external_reference,
+                g.message_id,
+                opprettet \
+            FROM LOGG l \
+            JOIN GREETING g ON l.greeting_id = g.id \
+            ");
         logg_sql.push(format!(" WHERE id {} ", direction.operator));
         logg_sql.push_bind(logg_query.offset);
         logg_sql.push(format!(" ORDER BY id {}", direction.order));
@@ -92,10 +100,12 @@ pub struct LoggEntryEntity {
 
 #[derive(Debug, Serialize, Deserialize, Clone)]
 pub struct GreetingQueryEntity {
+    external_reference: String,
     id: String,
     to: String,
     from: String,
     heading: String,
     message: String,
     created: NaiveDateTime,
+    events_created: HashMap<String, NaiveDateTime>,
 }
