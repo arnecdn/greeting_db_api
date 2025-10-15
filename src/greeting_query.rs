@@ -40,9 +40,9 @@ impl GreetingQueryRepository for GreetingQueryRepositoryImpl {
             FROM LOGG l \
             JOIN GREETING g ON l.greeting_id = g.id \
             ");
-        logg_sql.push(format!(" WHERE id {} ", direction.operator));
+        logg_sql.push(format!(" WHERE l.id {} ", direction.operator));
         logg_sql.push_bind(logg_query.offset);
-        logg_sql.push(format!(" ORDER BY id {}", direction.order));
+        logg_sql.push(format!(" ORDER BY l.id {}", direction.order));
         logg_sql.push(" LIMIT ");
         logg_sql.push_bind(logg_query.limit);
         let mut transaction = self.pool.begin().await?;
