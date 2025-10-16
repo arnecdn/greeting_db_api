@@ -35,7 +35,6 @@ impl GreetingQueryRepository for GreetingQueryRepositoryImpl {
             QueryBuilder::new("SELECT l.id, \
                 l.greeting_id, \
                 g.external_reference,
-                g.message_id,
                 opprettet \
             FROM LOGG l \
             JOIN GREETING g ON l.greeting_id = g.id \
@@ -56,7 +55,8 @@ impl GreetingQueryRepository for GreetingQueryRepositoryImpl {
                 .map(|v| LoggEntryEntity {
                     id: v.get(0),
                     greeting_id: v.get(1),
-                    created: v.get(2),
+                    external_reference: v.get(2),
+                    created: v.get(3),
                 })
                 .collect::<Vec<_>>()
         })?;
@@ -95,6 +95,7 @@ pub struct LoggQueryEntity {
 pub struct LoggEntryEntity {
     pub id: i64,
     pub greeting_id: i64,
+    pub external_reference: String,
     pub created: DateTime<Utc>,
 }
 
