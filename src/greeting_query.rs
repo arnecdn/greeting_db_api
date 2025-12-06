@@ -101,8 +101,9 @@ pub struct LoggEntryEntity {
 
 #[derive(Debug, Serialize, Deserialize, Clone)]
 pub struct GreetingQueryEntity {
-    external_reference: String,
     id: String,
+    external_reference: String,
+    message_id: String,
     to: String,
     from: String,
     heading: String,
