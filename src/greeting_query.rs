@@ -1,11 +1,11 @@
-use std::collections::HashMap;
+use crate::greeting_pg_trace::PgTraceContext;
 use crate::DbError;
 use async_trait::async_trait;
 use chrono::{DateTime, NaiveDateTime, Utc};
 use serde::{Deserialize, Serialize};
 use sqlx::{Executor, Pool, Postgres, QueryBuilder, Row};
+use std::collections::HashMap;
 use std::fmt::{Debug, Formatter};
-use crate::greeting_pg_trace::PgTraceContext;
 
 pub struct GreetingQueryRepositoryImpl {
     pool: Box<Pool<sqlx::Postgres>>,
@@ -13,7 +13,12 @@ pub struct GreetingQueryRepositoryImpl {
 
 #[async_trait]
 pub trait GreetingQueryRepository {
-    async fn list_log_entries(&self, trace: PgTraceContext, logg_query: LoggQueryEntity) -> Result<Vec<LoggEntryEntity>, DbError>;
+    async fn list_log_entries(
+        &self,
+        trace: PgTraceContext,
+        logg_query: LoggQueryEntity,
+    ) -> Result<Vec<LoggEntryEntity>, DbError>;
+    async fn last_log_entry(&self, trace: PgTraceContext) -> Result<Option<LoggEntryEntity>, DbError>;
 }
 
 impl Debug for GreetingQueryRepositoryImpl {
@@ -28,17 +33,22 @@ impl GreetingQueryRepositoryImpl {
 }
 #[async_trait]
 impl GreetingQueryRepository for GreetingQueryRepositoryImpl {
-    async fn list_log_entries(&self, trace: PgTraceContext, logg_query: LoggQueryEntity) -> Result<Vec<LoggEntryEntity>, DbError> {
+    async fn list_log_entries(
+        &self,
+        trace: PgTraceContext,
+        logg_query: LoggQueryEntity,
+    ) -> Result<Vec<LoggEntryEntity>, DbError> {
         let direction = SqlDirection::value_of(&logg_query.direction);
 
-        let mut logg_sql: QueryBuilder<Postgres> =
-            QueryBuilder::new("SELECT l.id, \
+        let mut logg_sql: QueryBuilder<Postgres> = QueryBuilder::new(
+            "SELECT l.id, \
                 l.greeting_id, \
                 g.external_reference,
                 opprettet \
             FROM LOGG l \
             JOIN GREETING g ON l.greeting_id = g.id \
-            ");
+            ",
+        );
         logg_sql.push(format!(" WHERE l.id {} ", direction.operator));
         logg_sql.push_bind(logg_query.offset);
         logg_sql.push(format!(" ORDER BY l.id {}", direction.order));
@@ -63,6 +73,43 @@ impl GreetingQueryRepository for GreetingQueryRepositoryImpl {
         transaction.commit().await?;
 
         Ok(r)
+    }
+
+    async fn last_log_entry(
+        &self,
+        trace: PgTraceContext,
+    ) -> Result<Option<LoggEntryEntity>, DbError> {
+        let mut logg_sql: QueryBuilder<Postgres> = QueryBuilder::new(
+            "SELECT l.id,
+                   l.greeting_id,
+                   g.external_reference,
+                   l.opprettet
+                FROM logg l
+                JOIN greeting g ON l.greeting_id = g.id
+                ORDER BY l.id DESC
+                LIMIT 1
+            ",
+        );
+        let mut transaction = self.pool.begin().await?;
+        sqlx::query(&trace.to_sql())
+            .execute(&mut *transaction)
+            .await?;
+
+        let optional_row = transaction.fetch_optional(logg_sql.build()).await?;
+
+        let optional_log_entry = match optional_row {
+            Some(r) => Some(LoggEntryEntity {
+                id: r.get(0),
+                greeting_id: r.get(1),
+                external_reference: r.get(2),
+                created: r.get(3),
+            }),
+            None => None,
+        };
+
+        transaction.commit().await?;
+
+        Ok(optional_log_entry)
     }
 }
 
