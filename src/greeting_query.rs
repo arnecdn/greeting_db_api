@@ -1,7 +1,7 @@
 use crate::greeting_pg_trace::PgTraceContext;
 use crate::DbError;
 use async_trait::async_trait;
-use chrono::{DateTime, NaiveDateTime, Utc};
+use chrono::{DateTime, Utc};
 use serde::{Deserialize, Serialize};
 use sqlx::{Executor, Pool, Postgres, QueryBuilder, Row};
 use std::collections::HashMap;
@@ -192,7 +192,7 @@ pub struct LoggEntryEntity {
 pub struct GreetingEntity{
     pub id: i64,
     pub message: JsonValue,
-    pub created: NaiveDateTime,
+    pub created: DateTime<Utc>,
 }
 #[derive(Debug, Serialize, Deserialize, Clone)]
 pub struct GreetingMessageEntity {
@@ -202,6 +202,6 @@ pub struct GreetingMessageEntity {
     from: String,
     heading: String,
     message: String,
-    created: NaiveDateTime,
-    events_created: HashMap<String, NaiveDateTime>,
+    pub created: DateTime<Utc>,
+    events_created: HashMap<String, DateTime<Utc>>,
 }
