@@ -6,6 +6,7 @@ use serde::{Deserialize, Serialize};
 use sqlx::{Executor, Pool, Postgres, QueryBuilder, Row};
 use std::collections::HashMap;
 use std::fmt::{Debug, Formatter};
+use sqlx::types::JsonValue;
 
 pub struct GreetingQueryRepositoryImpl {
     pool: Box<Pool<sqlx::Postgres>>,
@@ -19,6 +20,11 @@ pub trait GreetingQueryRepository {
         logg_query: LoggQueryEntity,
     ) -> Result<Vec<LoggEntryEntity>, DbError>;
     async fn last_log_entry(&self, trace: PgTraceContext) -> Result<Option<LoggEntryEntity>, DbError>;
+    async fn find_greeting(
+        &self,
+        trace: PgTraceContext,
+        greeting_id: i64
+    ) -> Result<Option<GreetingEntity>, DbError>;
 }
 
 impl Debug for GreetingQueryRepositoryImpl {
@@ -43,7 +49,7 @@ impl GreetingQueryRepository for GreetingQueryRepositoryImpl {
         let mut logg_sql: QueryBuilder<Postgres> = QueryBuilder::new(
             "SELECT l.id, \
                 l.greeting_id, \
-                g.external_reference,
+                g.message_id,
                 opprettet \
             FROM LOGG l \
             JOIN GREETING g ON l.greeting_id = g.id \
@@ -65,7 +71,7 @@ impl GreetingQueryRepository for GreetingQueryRepositoryImpl {
                 .map(|v| LoggEntryEntity {
                     id: v.get(0),
                     greeting_id: v.get(1),
-                    external_reference: v.get(2),
+                    message_id: v.get(2),
                     created: v.get(3),
                 })
                 .collect::<Vec<_>>()
@@ -82,7 +88,7 @@ impl GreetingQueryRepository for GreetingQueryRepositoryImpl {
         let mut logg_sql: QueryBuilder<Postgres> = QueryBuilder::new(
             "SELECT l.id,
                    l.greeting_id,
-                   g.external_reference,
+                   g.message_id,
                    l.opprettet
                 FROM logg l
                 JOIN greeting g ON l.greeting_id = g.id
@@ -101,8 +107,44 @@ impl GreetingQueryRepository for GreetingQueryRepositoryImpl {
             Some(r) => Some(LoggEntryEntity {
                 id: r.get(0),
                 greeting_id: r.get(1),
-                external_reference: r.get(2),
+                message_id: r.get(2),
                 created: r.get(3),
+            }),
+            None => None,
+        };
+
+        transaction.commit().await?;
+
+        Ok(optional_log_entry)
+    }
+
+    async fn find_greeting(
+        &self,
+        trace: PgTraceContext,
+        greeting_id: i64
+    ) -> Result<Option<GreetingEntity>, DbError> {
+        let  logg_sql = "SELECT g.id,
+                        g.message,
+                        g.created
+                FROM greeting g
+                where g.id = $1
+            ";
+        let mut transaction = self.pool.begin().await?;
+        sqlx::query(&trace.to_sql())
+            .execute(&mut *transaction)
+            .await?;
+
+        let optional_row = sqlx::query(&logg_sql)
+            .bind(greeting_id)
+            .fetch_optional(&mut *transaction)
+            .await?;
+
+
+        let optional_log_entry = match optional_row {
+            Some(r) => Some(GreetingEntity {
+                id: r.get(0),
+                message: r.get(1),
+                created: r.get(2),
             }),
             None => None,
         };
@@ -142,13 +184,18 @@ pub struct LoggQueryEntity {
 pub struct LoggEntryEntity {
     pub id: i64,
     pub greeting_id: i64,
-    pub external_reference: String,
+    pub message_id: String,
     pub created: DateTime<Utc>,
 }
 
 #[derive(Debug, Serialize, Deserialize, Clone)]
-pub struct GreetingQueryEntity {
-    id: String,
+pub struct GreetingEntity{
+    pub id: i64,
+    pub message: JsonValue,
+    pub created: NaiveDateTime,
+}
+#[derive(Debug, Serialize, Deserialize, Clone)]
+pub struct GreetingMessageEntity {
     external_reference: String,
     message_id: String,
     to: String,
