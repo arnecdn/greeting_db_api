@@ -50,7 +50,7 @@ impl GreetingQueryRepository for GreetingQueryRepositoryImpl {
             "SELECT l.id, \
                 l.greeting_id, \
                 g.message_id,
-                opprettet \
+                .created \
             FROM LOGG l \
             JOIN GREETING g ON l.greeting_id = g.id \
             ",
@@ -89,7 +89,7 @@ impl GreetingQueryRepository for GreetingQueryRepositoryImpl {
             "SELECT l.id,
                    l.greeting_id,
                    g.message_id,
-                   l.opprettet
+                   l.created
                 FROM logg l
                 JOIN greeting g ON l.greeting_id = g.id
                 ORDER BY l.id DESC
