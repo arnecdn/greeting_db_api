@@ -2,7 +2,7 @@ use std::collections::HashMap;
 use crate::greeting_pg_trace::PgTraceContext;
 use crate::DbError;
 use async_trait::async_trait;
-use chrono::NaiveDateTime;
+use chrono::{DateTime, Utc};
 use serde::{Deserialize, Serialize};
 use sqlx::types::Json;
 use sqlx::Pool;
@@ -72,6 +72,7 @@ impl GreetingCommandRepository for GreetingCommandRepositoryImpl {
 }
 
 #[derive(Debug, Serialize, Deserialize, Clone)]
+#[serde(rename_all = "camelCase")]
 pub struct GreetingCmdEntity {
     external_reference: String,
     message_id: String,
@@ -79,7 +80,7 @@ pub struct GreetingCmdEntity {
     from: String,
     heading: String,
     message: String,
-    created: NaiveDateTime,
-    events_created: HashMap<String, NaiveDateTime>,
+    created: DateTime<Utc>,
+    events_created: HashMap<String, DateTime<Utc>>,
 }
 

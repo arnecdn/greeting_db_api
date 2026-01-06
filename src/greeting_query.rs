@@ -7,6 +7,7 @@ use sqlx::{Executor, Pool, Postgres, QueryBuilder, Row};
 use std::collections::HashMap;
 use std::fmt::{Debug, Formatter};
 use sqlx::types::JsonValue;
+use uuid::Uuid;
 
 pub struct GreetingQueryRepositoryImpl {
     pool: Box<Pool<sqlx::Postgres>>,
@@ -184,11 +185,12 @@ pub struct LoggQueryEntity {
 pub struct LoggEntryEntity {
     pub id: i64,
     pub greeting_id: i64,
-    pub message_id: String,
+    pub message_id: Uuid,
     pub created: DateTime<Utc>,
 }
 
 #[derive(Debug, Serialize, Deserialize, Clone)]
+#[serde(rename_all = "camelCase")]
 pub struct GreetingEntity{
     pub id: i64,
     pub message: JsonValue,
@@ -196,6 +198,7 @@ pub struct GreetingEntity{
 }
 
 #[derive(Debug, Serialize, Deserialize, Clone)]
+#[serde(rename_all = "camelCase")]
 pub struct GreetingMessageEntity {
     external_reference: String,
     message_id: String,
