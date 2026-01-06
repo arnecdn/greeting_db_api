@@ -194,6 +194,7 @@ pub struct GreetingEntity{
     pub message: JsonValue,
     pub created: DateTime<Utc>,
 }
+
 #[derive(Debug, Serialize, Deserialize, Clone)]
 pub struct GreetingMessageEntity {
     external_reference: String,

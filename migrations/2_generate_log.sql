@@ -4,7 +4,7 @@ create table logg
 (
     id           bigint                   default nextval('logg_id_seq'::regclass) not null,
     greeting_id  bigint,
-    opprettet    timestamp with time zone default CURRENT_TIMESTAMP                not null,
+    created      timestamp with time zone default CURRENT_TIMESTAMP                not null,
     primary key (id),
     constraint logg_dokument_id_type_fkey
         foreign key ( greeting_id) references greeting
