@@ -50,7 +50,7 @@ impl GreetingQueryRepository for GreetingQueryRepositoryImpl {
             "SELECT l.id, \
                 l.greeting_id, \
                 g.message_id,
-                .created \
+                l.created \
             FROM LOGG l \
             JOIN GREETING g ON l.greeting_id = g.id \
             ",
